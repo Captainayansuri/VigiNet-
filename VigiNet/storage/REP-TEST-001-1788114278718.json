@@ -1,0 +1,15 @@
+{
+  "reportId": "REP-TEST-001",
+  "incidentId": "VN-63481",
+  "type": "PHOTO",
+  "storageKey": "local-storage/REP-TEST-001/1788114278718-flood_photo.jpg",
+  "mimeType": "image/jpeg",
+  "sizeBytes": 1048576,
+  "locationLat": 13.0827,
+  "locationLng": 80.2707,
+  "metadata": {
+    "storageProvider": "LOCAL_DEVELOPMENT_STORAGE",
+    "filename": "flood_photo.jpg",
+    "productionReady": false
+  }
+}
