@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import ReportService from '../services/ReportService';
 import LocationService from '../services/LocationService';
 import ShelterService from '../services/ShelterService';
@@ -76,12 +76,7 @@ export const AppProvider = ({ children }) => {
     });
   }, []);
 
-  // Auto-sync when coming back online
-  useEffect(() => {
-    if (isOnline && offlineQueue.length > 0) {
-      triggerSync();
-    }
-  }, [isOnline]);
+
 
   // Resilient GPS Location Fetch using LocationService
   const detectUserLocation = async ({ fresh = false } = {}) => {
@@ -146,14 +141,30 @@ export const AppProvider = ({ children }) => {
     return sosReport;
   };
 
-  // Sync Offline Queue
-  const triggerSync = () => {
-    const updated = ReportService.syncQueue();
-    if (updated.length > 0) {
-      setReports(updated);
-      setOfflineQueue([]);
+// Prevent multiple sync attempts at the same time
+const isSyncingRef = useRef(false);
+
+// Sync Offline Queue
+const triggerSync = async () => {
+  if (isSyncingRef.current) return;
+
+  isSyncingRef.current = true;
+
+  try {
+    const updated = await ReportService.syncQueue();
+
+    setReports(updated);
+    setOfflineQueue(ReportService.getOfflineQueue());
+  } finally {
+    isSyncingRef.current = false;
+  }
+};
+  // Auto-sync when coming back online
+  useEffect(() => {
+    if (isOnline && offlineQueue.length > 0) {
+      triggerSync();
     }
-  };
+  }, [isOnline, offlineQueue.length]);
 
   const selectedReport = reports.find(r => r.id === selectedReportId) || null;
 

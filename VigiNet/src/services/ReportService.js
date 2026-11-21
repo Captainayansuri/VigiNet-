@@ -131,44 +131,59 @@ class ReportService {
     }
   }
 
-  syncQueue() {
+
+  async syncQueue() {
     const queue = this.getOfflineQueue();
-    if (queue.length === 0) return [];
+    if (queue.length === 0) return this.getReports();
 
     const reports = this.getReports();
-    const nowString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    // Attempt to upload each queued report to the API
-    queue.forEach((queuedItem) => {
-      this.dispatchReportToApi(queuedItem).catch((e) => {
-        console.warn('[ReportService] Background sync failed for report', queuedItem.id, e.message);
-      });
+    const nowString = new Date().toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
     });
 
-    const updatedReports = reports.map((r) => {
-      if (r.isOfflineQueued) {
-        return {
-          ...r,
-          isOfflineQueued: false,
-          verificationStatus: 'Synced with Control Node',
-          timeline: [
-            ...r.timeline,
-            {
-              status: 'ANALYZING',
-              title: 'Auto-Synced to VigiNet',
-              time: nowString,
-              description: 'Ground packet uploaded automatically upon network restoration.',
-            },
-          ],
-        };
+    const remainingQueue = [];
+    const syncedIds = new Set();
+
+    for (const queuedItem of queue) {
+      try {
+        await this.dispatchReportToApi(queuedItem);
+        syncedIds.add(queuedItem.id);
+      } catch (error) {
+        console.warn(
+          '[ReportService] Background sync failed for report',
+          queuedItem.id,
+          error.message
+        );
+        remainingQueue.push(queuedItem);
       }
-      return r;
+    }
+
+    const updatedReports = reports.map((report) => {
+      if (!syncedIds.has(report.id)) return report;
+
+      return {
+        ...report,
+        isOfflineQueued: false,
+        verificationStatus: 'Synced with Control Node',
+        timeline: [
+          ...(report.timeline || []),
+          {
+            status: 'ANALYZING',
+            title: 'Auto-Synced to VigiNet',
+            time: nowString,
+            description: 'Ground packet uploaded successfully after connectivity restoration.',
+          },
+        ],
+      };
     });
 
     this.saveReports(updatedReports);
-    this.saveOfflineQueue([]);
+    this.saveOfflineQueue(remainingQueue);
+
     return updatedReports;
   }
+
 }
 
 export default new ReportService();
